@@ -1,0 +1,49 @@
+name: Terraform Deployment
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  AWS_REGION: ap-southeast-2
+  VPC_CIDR: 10.0.0.0/16
+  SUBNET_CIDR: 10.0.1.0/24
+  INSTANCE_TYPE: t2.micro
+  KEY_NAME: my-key
+
+jobs:
+  terraform:
+    name: Terraform Deploy
+    runs-on: ubuntu-latest
+    container:
+      image: hashicorp/terraform:1.6.0
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup AWS Credentials
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
+        run: |
+          echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" >> $GITHUB_ENV
+      
+      - name: Terraform Init
+        run: terraform init
+      
+      - name: Terraform Plan
+        run: |
+          terraform plan -out=tfplan \
+            -var="aws_region=${{ env.AWS_REGION }}" \
+            -var="vpc_cidr=${{ env.VPC_CIDR }}" \
+            -var="subnet_cidr=${{ env.SUBNET_CIDR }}" \
+            -var="instance_type=${{ env.INSTANCE_TYPE }}" \
+            -var="key_name=${{ env.KEY_NAME }}"
+      
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
